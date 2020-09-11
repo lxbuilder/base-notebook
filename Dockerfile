@@ -162,10 +162,12 @@ COPY jupyter_notebook_config.py /etc/jupyter/
 #COPY fix-permissions /usr/local/bin/fix-permissions
 
 # Fix permissions on /etc/jupyter as root
+# Enable prompt color in the skeleton .bashrc before creating the default NB_USER
 #USER root
 RUN pip install --no-cache-dir notebook && \
 	fix-permissions /etc/jupyter/ && \
 	chmod a+rx /usr/local/bin/fix-permissions && \
+	sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc && \
 	useradd -m -N -s /bin/bash -u $NB_UID $NB_USER && \
     chmod g+w /etc/passwd && \
     fix-permissions $HOME
