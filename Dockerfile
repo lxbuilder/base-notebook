@@ -3,11 +3,14 @@
 
 # edited by lxbuilder
 
-FROM ubuntu:20.04
+FROM lxbuilder/base-notebook:1 as bashrc_provider
 
-ARG NB_USER="jovyan"
-ARG NB_UID="1000"
-ARG NB_GID="100"
+USER root
+
+RUN chown root:root /home/jovyan/.bashrc && chmod 644 /home/jovyan/.bashrc
+
+##
+FROM ubuntu:20.04
 
 # Fix DL4006
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -23,43 +26,36 @@ RUN apt-get update \
 # Configure environment
 ENV CONDA_DIR=/opt/conda \
     SHELL=/bin/bash \
-    NB_USER=$NB_USER \
-    NB_UID=$NB_UID \
-    NB_GID=$NB_GID \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US.UTF-8 \
     PATH=$CONDA_DIR/bin:$PATH \
-    HOME=/home/$NB_USER
+    MINICONDA_VERSION=4.8.3 \
+    MINICONDA_MD5=d63adf39f2c220950a063e0529d4ff74 \
+    CONDA_VERSION=4.8.3 \
+    PATH="/opt/conda/bin:${PATH}"
+
+ARG PYTHON_VERSION=default
 
 # Copy a script that we will use to correct permissions after running certain commands
 # Enable prompt color in the skeleton .bashrc before creating the default NB_USER
-COPY fix-permissions /usr/local/bin/fix-permissions
-RUN chmod a+rx /usr/local/bin/fix-permissions && \
-	sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc
+# COPY fix-permissions /usr/local/bin/fix-permissions
 
 # Create NB_USER wtih name jovyan user with UID=1000 and in the 'users' group
 # and make sure these dirs are writable by the `users` group.
-RUN useradd -m -s /bin/bash -N -u $NB_UID $NB_USER && \
-    mkdir -p $CONDA_DIR && \
-    chown $NB_USER:$NB_GID $CONDA_DIR && \
-    chmod g+w /etc/passwd && \
-    fix-permissions $HOME && \
-    fix-permissions $CONDA_DIR
+# RUN useradd -m -s /bin/bash -N -u $NB_UID $NB_USER && \
+#     mkdir -p $CONDA_DIR && \
+#     chown $NB_USER:$NB_GID $CONDA_DIR && \
+#     chmod g+w /etc/passwd && \
+#     fix-permissions $HOME && \
+#     fix-permissions $CONDA_DIR
 
-USER $NB_UID
-WORKDIR $HOME
-ARG PYTHON_VERSION=default
-
-ENV MINICONDA_VERSION=4.8.3 \
-    MINICONDA_MD5=d63adf39f2c220950a063e0529d4ff74 \
-    CONDA_VERSION=4.8.3
+# USER $NB_UID
+# WORKDIR $HOME
 
 WORKDIR /tmp
 
-ENV PATH="/opt/conda/bin:${PATH}"
-
-RUN mkdir /home/$NB_USER/work && \
-    fix-permissions /home/$NB_USER && \
+RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc && \
+	mkdir /work && \
     wget --quiet --no-check-certificate https://repo.continuum.io/miniconda/Miniconda3-py38_${MINICONDA_VERSION}-Linux-x86_64.sh && \
     echo "${MINICONDA_MD5} *Miniconda3-py38_${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
     /bin/bash Miniconda3-py38_${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p $CONDA_DIR && \
@@ -77,9 +73,7 @@ RUN mkdir /home/$NB_USER/work && \
     conda clean --all -f -y && \
     jupyter notebook --generate-config && \
     rm -rf $CONDA_DIR/share/jupyter/lab/staging && \
-    rm -rf /home/$NB_USER/.cache/yarn && \
-    fix-permissions $CONDA_DIR && \
-    fix-permissions /home/$NB_USER
+    rm -rf /home/$NB_USER/.cache/yarn
 
 # Install Tini
 # RUN conda install --quiet --yes 'tini=0.18.0' && \
@@ -108,17 +102,18 @@ EXPOSE 8888
 
 # Configure container startup
 # ENTRYPOINT ["tini", "-g", "--"]
-CMD ["start-notebook.sh"]
+CMD ["jupyter", "notebook", "--allow-root"]
 
 # Copy local files as late as possible to avoid cache busting
-COPY start.sh start-notebook.sh start-singleuser.sh /usr/local/bin/
+#COPY start.sh start-notebook.sh start-singleuser.sh /usr/local/bin/
 COPY jupyter_notebook_config.py /etc/jupyter/
+COPY --from=bashrc_provider /home/jovyan/.bashrc /root/
 
-# Fix permissions on /etc/jupyter as root
-USER root
-RUN fix-permissions /etc/jupyter/
+# Fix permissions on /etc/jupyter
+# USER root
+# RUN fix-permissions /etc/jupyter/
 
 # Switch back to jovyan to avoid accidental container runs as root
-USER $NB_UID
+# USER $NB_UID
 
-WORKDIR $HOME
+WORKDIR /work
