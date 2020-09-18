@@ -21,6 +21,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update \
  && apt-get install -yq --no-install-recommends \
     wget \
+    ca-certificates \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Configure environment
@@ -28,7 +29,6 @@ ENV CONDA_DIR=/opt/conda \
     SHELL=/bin/bash \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US.UTF-8 \
-    PATH=$CONDA_DIR/bin:$PATH \
     MINICONDA_VERSION=4.8.3 \
     MINICONDA_MD5=d63adf39f2c220950a063e0529d4ff74 \
     CONDA_VERSION=4.8.3 \
@@ -55,8 +55,8 @@ ARG PYTHON_VERSION=default
 WORKDIR /tmp
 
 RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc && \
-	mkdir /work && \
-    wget --quiet --no-check-certificate https://repo.continuum.io/miniconda/Miniconda3-py38_${MINICONDA_VERSION}-Linux-x86_64.sh && \
+    mkdir /work && \
+    wget --quiet https://repo.continuum.io/miniconda/Miniconda3-py38_${MINICONDA_VERSION}-Linux-x86_64.sh && \
     echo "${MINICONDA_MD5} *Miniconda3-py38_${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
     /bin/bash Miniconda3-py38_${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p $CONDA_DIR && \
     rm Miniconda3-py38_${MINICONDA_VERSION}-Linux-x86_64.sh && \
@@ -67,7 +67,7 @@ RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashr
     conda config --system --set channel_priority strict && \
     if [ ! $PYTHON_VERSION = 'default' ]; then conda install --yes python=$PYTHON_VERSION; fi && \
     conda list python | grep '^python ' | tr -s ' ' | cut -d '.' -f 1,2 | sed 's/$/.*/' >> $CONDA_DIR/conda-meta/pinned && \
-    conda install --quiet --yes pip && \
+    conda install --quiet --yes 'pip=20.2.3' && \
     conda install --quiet --yes 'notebook=6.1.4' && \
     conda remove --force -y pandoc && \
     conda clean --all -f -y && \
