@@ -22,7 +22,8 @@ RUN apt-get update \
  && apt-get install -yq --no-install-recommends \
     wget \
     ca-certificates \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
+ && apt-get clean && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /var/cache/*
 
 # Configure environment
 ENV CONDA_DIR=/opt/conda \
@@ -73,7 +74,8 @@ RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashr
     conda clean --all -f -y && \
     jupyter notebook --generate-config && \
     rm -rf $CONDA_DIR/share/jupyter/lab/staging && \
-    rm -rf /home/$NB_USER/.cache/yarn
+    rm -rf /home/$NB_USER/.cache/yarn && \
+    rm -rf /var/cache/*
 
 # Install Tini
 # RUN conda install --quiet --yes 'tini=0.18.0' && \
